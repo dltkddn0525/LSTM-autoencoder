@@ -3,10 +3,12 @@ import os
 import argparse
 from torch.utils.data import DataLoader
 import time
+import json
 
 from dataset import preprocess, SWaTDataset
 from model import LSTMAutoEncoder
-from utils import AverageMeter, Logger
+from utils import AverageMeter, Logger,draw_loss_curve
+from detect import *
 from model2 import RecurrentAutoencoder
 
 parser = argparse.ArgumentParser(description='Anomaly detection')
@@ -77,8 +79,29 @@ def main():
         torch.save(model.state_dict(),os.path.join(save_path,'last.pth'))
 
     # Test(anomaly detection)
-    import ipdb;ipdb.set_trace()
     # estimate mean&cov on validation set
+    l1_criterion = torch.nn.L1Loss(reduction='none').cuda()
+    mean, cov = estimate(model,val_loader,l1_criterion)
+    # Compute anomaly score on test set
+    recon_err_list, score_list, label_list = anomaly_detect(model,test_loader,l1_criterion,mean,cov)
+    # Get performance
+    threshold = np.mean(score_list)+3*np.std(score_list)
+    auroc,precision, recall, f1 = get_performance(score_list,label_list,threshold)
+    
+    # save recon_err_list, score_list, label_list
+    np.save(os.path.join(save_path,'recon_err.npy'),recon_err_list)
+    np.save(os.path.join(save_path,'score_list.npy'),score_list)
+    np.save(os.path.join(save_path,'label_list.npy'),label_list)
+    # save performance
+    perf_dict = {"auroc":auroc,
+                "precision":precision,
+                "recall":recall,
+                "f1":f1}
+    with open(os.path.join(save_path,'perf_dict.json'),'w') as f:
+        json.dump(perf_dict,f)
+    # save fig
+    draw_loss_curve(train_logger,val_logger,save_path)
+
 
 def train(model,criterion,optimizer,train_loader,train_logger,epoch):
     model.train()

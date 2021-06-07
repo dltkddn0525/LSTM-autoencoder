@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
+from sklearn.metrics import confusion_matrix,roc_auc_score
 from dataset import preprocess, SWaTDataset
 from model import LSTMAutoEncoder
 
@@ -41,7 +42,6 @@ def cal_anomaly_score(recon_err, mean, cov):
     return score_list
 
 def anomaly_detect(model, test_loader, criterion, mean, cov):
-
     model.eval()
     recon_err_list = []
     score_list = []
@@ -68,7 +68,16 @@ def anomaly_detect(model, test_loader, criterion, mean, cov):
     return recon_err_list, score_list, label_list
 
 def get_performance(score_list,label_list,threshold):
-    
+    y_pred = [int(score>threshold) for score in score_list]
+    confusion_mat = confusion_matrix(label_list, y_pred)
+    precision = confusion_mat[1,1]/(confusion_mat[0,1]+confusion_mat[1,1])
+    recall = confusion_mat[1,1]/(confusion_mat[1,0]+confusion_mat[1,1])
+    f1 = 2 * (precision*recall)/(precision+recall)
+
+    auroc = roc_auc_score(label_list,score_list)
+
+    return auroc, precision, recall, f1
+
 
 
 if __name__ == '__main__':
@@ -85,10 +94,17 @@ if __name__ == '__main__':
     model = LSTMAutoEncoder(input_dim=input_dim,
                         hidden_dim=128,
                         num_layers=2).cuda()
-    #model.load_state_dict('./')
+    
+    model.load_state_dict(torch.load('./seqlength60_shiftl1_bs1024/last.pth'))
     
     criterion = torch.nn.L1Loss(reduction='none').cuda()
 
     mean, cov = estimate(model,val_loader,criterion)
     recon_err_list, score_list, label_list = anomaly_detect(model,test_loader,criterion,mean,cov)
+    #
+    threshold = np.mean(score_list)+3*np.std(score_list)
+    #
+    auroc,precision, recall, f1 = get_performance(score_list,label_list,threshold)
+    
+    
     import ipdb;ipdb.set_trace()

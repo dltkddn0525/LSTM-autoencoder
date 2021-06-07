@@ -67,12 +67,17 @@ class Logger(object):
                 log.append(values)
         return log
 
-def draw_loss_curve(trn_path, val_path):
-    train_logger = Logger(trn_path)
-    val_logger = Logger(val_path)
-
+def draw_loss_curve(train_logger, val_logger,save_path):
     train_log = train_logger.read()
     val_log = val_logger.read()
 
     epoch, train_loss, _, _ = zip(*train_log)
     epoch, val_loss = zip(*val_log)
+
+    plt.plot(epoch, train_loss, label='train loss')
+    plt.plot(epoch, val_loss, label='val loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('MSE Loss')
+    plt.title('Loss Curve')
+    plt.savefig(os.path.join(save_path,'loss_curve.png'))
+    plt.close()
