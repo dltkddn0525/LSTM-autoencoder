@@ -2,7 +2,7 @@
 Deep learning term project
 
 ## Introduction
-Pytorch implementation of LSTM Autoencoder based Time series anomaly detection [(LSTM-based Encoder-Decoder for Multi-sensor Anomaly Detection, Malhotra et al)](https://arxiv.org/abs/1607.00148)
+Pytorch implementation of LSTM Autoencoder based Time series anomaly detection. 
 
 <hr>
 
@@ -82,4 +82,6 @@ CUDA_VISIBLE_DEVICES=0 python main.py --save_path <your save path> --data_path <
 |AMPds2-Water|False| | | | |
 |AMPds2-Water|True| | | | |
 
+## Reference
+[(LSTM-based Encoder-Decoder for Multi-sensor Anomaly Detection, 2016, Malhotra et al)](https://arxiv.org/abs/1607.00148)
 
