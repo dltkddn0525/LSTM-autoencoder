@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 import time
 import json
 
-from dataset import preprocess, SWaTDataset
+from dataset import preprocess, TimeSeriesDataset
 from model import LSTMAutoEncoder
 from utils import AverageMeter, Logger,draw_loss_curve
 from detect import *
@@ -28,10 +28,12 @@ parser.add_argument('--num_layers', default=2, type=int,
                     help='Number of lstm layers')
 parser.add_argument('--batch_size', default=1024, type=int,
                     help='batch size')
-parser.add_argument('--epoch', default=150, type=int,
+parser.add_argument('--epoch', default=100, type=int,
                     help='Train Epoch')
 parser.add_argument('--lr', default=0.001, type=float,
                     help='Learning rate')
+parser.add_argument('--attention', default=False, type=bool,
+                    help='Whether to apply attention')
 args = parser.parse_args()
 
 def main():
@@ -45,11 +47,11 @@ def main():
 
     normal_trn, normal_val, abnormal, mean, std, input_dim = preprocess(args.data_path)
 
-    train_dataset = SWaTDataset(normal_trn, mean,std,
+    train_dataset = TimeSeriesDataset(normal_trn, mean,std,
                                 seq_length=args.seq_length,shift_length=args.trn_shift_length)
-    val_dataset = SWaTDataset(normal_val, mean,std,
+    val_dataset = TimeSeriesDataset(normal_val, mean,std,
                                 seq_length=args.seq_length,shift_length=args.tst_shift_length)
-    test_dataset = SWaTDataset(abnormal, mean,std,
+    test_dataset = TimeSeriesDataset(abnormal, mean,std,
                                 seq_length=args.seq_length,shift_length=args.tst_shift_length)
     
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,
@@ -62,6 +64,8 @@ def main():
     # Model
     model = LSTMAutoEncoder(input_dim=input_dim,
                             hidden_dim=args.hidden_dim,
+                            attention=args.attention,
+                            seq_length=args.seq_length,
                             num_layers=args.num_layers).cuda()
 
     # Optimizer & Loss
@@ -87,7 +91,9 @@ def main():
     # Get performance
     threshold = np.mean(score_list)+3*np.std(score_list)
     auroc,precision, recall, f1 = get_performance(score_list,label_list,threshold)
-    
+    import ipdb;ipdb.set_trace()
+    tst_recon_mean = torch.Tensor(recon_err_list).mean()
+
     # save recon_err_list, score_list, label_list
     np.save(os.path.join(save_path,'recon_err.npy'),recon_err_list)
     np.save(os.path.join(save_path,'score_list.npy'),score_list)
@@ -96,7 +102,8 @@ def main():
     perf_dict = {"auroc":auroc,
                 "precision":precision,
                 "recall":recall,
-                "f1":f1}
+                "f1":f1,
+                "recon mean":tst_recon_mean}
     with open(os.path.join(save_path,'perf_dict.json'),'w') as f:
         json.dump(perf_dict,f)
     # save fig

@@ -1,9 +1,12 @@
+import os
 import torch
+import json
 import numpy as np
 from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix,roc_auc_score
-from dataset import preprocess, SWaTDataset
+from dataset import preprocess, TimeSeriesDataset
 from model import LSTMAutoEncoder
+from utils import *
 
 def estimate(model, val_loader, criterion):
     '''
@@ -37,7 +40,10 @@ def cal_anomaly_score(recon_err, mean, cov):
     score_list = []
     for err in recon_err:
         z = err - mean
-        score = np.matmul(np.matmul(z,cov),z.T)
+        if z.shape == (1,):
+            score = z*z*cov
+        else:
+            score = np.matmul(np.matmul(z,cov),z.T)
         score_list.append(score)
     return score_list
 
@@ -81,22 +87,24 @@ def get_performance(score_list,label_list,threshold):
 
 
 if __name__ == '__main__':
-    path = '/daintlab/data/SWaT'
+    path = '/daintlab/data/AMPds2/labeled/Electricity_WHE_labeled.csv'
+    save_path = './ampds2_elec'
     normal_trn, normal_val, abnormal, mean, std, input_dim = preprocess(path)
-    val_dataset = SWaTDataset(normal_val, mean,std,
-                            seq_length=60,shift_length=60)
+    val_dataset = TimeSeriesDataset(normal_val, mean,std,
+                            seq_length=10,shift_length=10)
     val_loader = DataLoader(val_dataset, batch_size=1024, shuffle=False,
                             num_workers=4, pin_memory=True)
-    test_dataset = SWaTDataset(abnormal, mean,std,
-                            seq_length=60,shift_length=60)
+    test_dataset = TimeSeriesDataset(abnormal, mean,std,
+                            seq_length=10,shift_length=10)
     test_loader = DataLoader(test_dataset, batch_size=1024, shuffle=False,
                             num_workers=4, pin_memory=True)
     model = LSTMAutoEncoder(input_dim=input_dim,
-                        hidden_dim=128,
-                        num_layers=2).cuda()
+                            hidden_dim=64,
+                            attention=False,
+                            seq_length=10,
+                            num_layers=2).cuda()
     
-    model.load_state_dict(torch.load('./seqlength60_shiftl1_bs1024/last.pth'))
-    
+    model.load_state_dict(torch.load(os.path.join(save_path,'last.pth')))
     criterion = torch.nn.L1Loss(reduction='none').cuda()
 
     mean, cov = estimate(model,val_loader,criterion)
@@ -106,5 +114,23 @@ if __name__ == '__main__':
     #
     auroc,precision, recall, f1 = get_performance(score_list,label_list,threshold)
     
+    np.save(os.path.join(save_path,'recon_err.npy'),recon_err_list)
+    np.save(os.path.join(save_path,'score_list.npy'),score_list)
+    np.save(os.path.join(save_path,'label_list.npy'),label_list)
+    tst_recon_mean = torch.Tensor(recon_err_list).mean()
+
+    perf_dict = {"auroc":auroc,
+                "precision":precision,
+                "recall":recall,
+                "f1":f1,
+                "recon mean":tst_recon_mean}
+                
+    with open(os.path.join(save_path,'perf_dict.json'),'w') as f:
+        json.dump(perf_dict,f)
+    train_logger = Logger(os.path.join(save_path,'train.log'))
+    val_logger = Logger(os.path.join(save_path,'val.log'))
+    draw_loss_curve(train_logger,val_logger,save_path)
     
     import ipdb;ipdb.set_trace()
+    mean_err = torch.mean(recon_err_list)
+    

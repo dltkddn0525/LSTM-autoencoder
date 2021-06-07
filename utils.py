@@ -79,5 +79,6 @@ def draw_loss_curve(train_logger, val_logger,save_path):
     plt.xlabel('Epoch')
     plt.ylabel('MSE Loss')
     plt.title('Loss Curve')
+    plt.legend(loc='upper right')
     plt.savefig(os.path.join(save_path,'loss_curve.png'))
     plt.close()

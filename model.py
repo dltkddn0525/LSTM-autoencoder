@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class Encoder(nn.Module):
 
@@ -15,7 +16,6 @@ class Encoder(nn.Module):
 
         return output, (hidden, cell)
     
-## 디코더
 class Decoder(nn.Module):
 
     def __init__(self, input_size=37, hidden_size=16, output_size=37, num_layers=2):
@@ -41,6 +41,8 @@ class LSTMAutoEncoder(nn.Module):
     def __init__(self,
                  input_dim: int,
                  hidden_dim: int,
+                 attention: bool,
+                 seq_length: int,
                  **kwargs) -> None:
         """
         :param input_dim: 변수 Tag 갯수
@@ -52,6 +54,8 @@ class LSTMAutoEncoder(nn.Module):
 
         self.hidden_dim = hidden_dim
         self.input_dim = input_dim
+        self.attention = attention
+        self.seq_length = seq_length
 
         if "num_layers" in kwargs:
             num_layers = kwargs.pop("num_layers")
@@ -69,12 +73,34 @@ class LSTMAutoEncoder(nn.Module):
             hidden_size=hidden_dim,
             num_layers=num_layers,
         )
+        if self.attention:
+            self.Qw = nn.Linear(self.hidden_dim,self.hidden_dim,bias=False)
+            self.Kw = nn.Linear(self.hidden_dim,self.hidden_dim,bias=False)
+            self.Vw = nn.Linear(self.hidden_dim,self.hidden_dim,bias=False)
+            self.project = nn.Linear(self.seq_length,num_layers,bias=False)
 
     def forward(self,x):
         batch_size, sequence_length, var_length = x.size()
 
-        _,encoder_hidden = self.encoder(x)
-        hidden = encoder_hidden
+        output,encoder_hidden = self.encoder(x)
+        if self.attention:
+            hidden, cell = encoder_hidden
+            query = self.Qw(output)
+            key = self.Kw(output)
+            value = self.Vw(output)
+
+            attention_map = torch.matmul(query,key.transpose(2,1))
+            attention_map = F.softmax(attention_map,dim=-1)
+            attention_map = torch.matmul(attention_map,value)
+
+            project_mat = self.project(attention_map.transpose(2,1))
+            
+            new_hidden = project_mat.permute(2,0,1)+hidden
+            new_hidden = new_hidden.contiguous()
+            hidden = (new_hidden,cell)
+
+        else:
+            hidden = encoder_hidden
         temp_input = torch.zeros((batch_size,1,var_length),dtype=torch.float).to(x.device)
         reconstruct_output=[]
         for t in range(sequence_length):
