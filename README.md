@@ -71,16 +71,18 @@ CUDA_VISIBLE_DEVICES=0 python main.py --save_path <your save path> --data_path <
 - 각 데이터 셋의 성능 평가 결과입니다. Precision, Recall, F1-score는 static threshold을 기준으로 계산됩니다. 
 - Static threshold는 test dataset에 대한 anomaly score의 평균 + 3\* 표준편차로 설정됩니다.(3-sigma rule)
 
-|Dataset|attention|AUROC|Precision|Recall|F1-score|
-|-------|---------|-----|---------|------|--------|
-|SWaT|False|0.8170|0.9973|0.5849|0.7374|
-|SWaT|True|0.8130|0.9978|0.5850|0.7376|
-|AMPds2-Electricity|False|0.9889|0.9399|0.2451|0.3889|
-|AMPds2-Electricity|True|0.9968|0.9617|0.2673|0.4182|
-|AMPds2-Gas|False| | | | |
-|AMPds2-Gas|True| | | | |
-|AMPds2-Water|False| | | | |
-|AMPds2-Water|True| | | | |
+|Dataset|Seq length|hidden size|attention|AUROC|Precision|Recall|F1-score|
+|-------|----------|-----------|---------|-----|---------|------|--------|
+|SWaT|60|128|False|0.8170|0.9973|0.5849|0.7374|
+|SWaT|60|128|True|0.8130|0.9978|0.5850|0.7376|
+|SWaT|120|256|False|0.8192|0.9977|0.5850|0.7375|
+|SWaT|120|256|True|0.8304|0.9978|0.5850|0.7376|
+|AMPds2-Electricity|10|64|False|0.9889|0.9399|0.2451|0.3889|
+|AMPds2-Electricity|10|64|True|0.9968|0.9617|0.2673|0.4182|
+|AMPds2-Gas|10|64|False| 0.9997|0.9036 |1 |0.9494 |
+|AMPds2-Gas|10|64|True| 0.9996|0.8997 |1 |0.9402 |
+|AMPds2-Water|10|64|False|0.9852 |0.9967 |0.1551 |0.2684 |
+|AMPds2-Water|10|64|True|0.9853 |0.9967 |0.1540 |0.2668 |
 
 ## Reference
 [(LSTM-based Encoder-Decoder for Multi-sensor Anomaly Detection, 2016, Malhotra et al)](https://arxiv.org/abs/1607.00148)
