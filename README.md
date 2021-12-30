@@ -1,4 +1,4 @@
-# LSTM-autoencoder
+# LSTM-autoencoder based Time Series Anomaly Detection
 Deep learning term project
 
 ## Introduction
