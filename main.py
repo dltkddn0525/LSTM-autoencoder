@@ -91,7 +91,6 @@ def main():
     # Get performance
     threshold = np.mean(score_list)+3*np.std(score_list)
     auroc,precision, recall, f1 = get_performance(score_list,label_list,threshold)
-    import ipdb;ipdb.set_trace()
     tst_recon_mean = torch.Tensor(recon_err_list).mean()
 
     # save recon_err_list, score_list, label_list
